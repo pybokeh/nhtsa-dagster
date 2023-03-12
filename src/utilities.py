@@ -1,6 +1,7 @@
 """
 Listed below are functions used by the NHTSA assets/functions found in nhtsa_assets.py
 """
+import io
 import json
 import pandas as pd
 import requests

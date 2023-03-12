@@ -1,6 +1,6 @@
 from datetime import datetime
 from dagster_snowflake_pandas import snowflake_pandas_io_manager
-from dagster import Definitions, SourceAsset, asset
+from dagster import AssetIn, Definitions, SourceAsset, asset
 from tqdm import tqdm
 from utilities import fetch_manufacturers, fetch_model_names, fetch_wmi_by_manufacturer, fetch_wmi_data
 import io
@@ -59,24 +59,6 @@ def manufacturers(context) -> pd.DataFrame:
 
 
 @asset
-def manufacturer_id(manufacturers: pd.DataFrame) -> pd.DataFrame:
-    """
-    List of manufacturer IDs that we want to provide to downstream assets.
-
-    Parameters
-    ----------
-    manufacturers
-
-    Returns
-    -------
-    pandas dataframe with 'mfr_id' column
-
-    """
-
-    return manufacturers[['mfr_id', 'created_date']].drop_duplicates()
-
-
-@asset
 def makes() -> pd.DataFrame:
     """
     Vehicle makes from NHTSA API
@@ -89,7 +71,16 @@ def makes() -> pd.DataFrame:
     return df
 
 
-@asset
+# To return only make_id column, need to add this extra boilerplate
+# https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
+@asset(
+    ins={
+        "make_id_cars_trucks": AssetIn(
+            key="make_id_cars_trucks",
+            metadata={"columns": ["make_id"]},
+        )
+    }
+)
 def model_names(make_id_cars_trucks: pd.DataFrame) -> pd.DataFrame:
     """
     Vehicle model names from NHTSA API (passenger cars and trucks only, last 15 years)
@@ -111,7 +102,9 @@ def model_names(make_id_cars_trucks: pd.DataFrame) -> pd.DataFrame:
     start_year = datetime.today().year - 14
 
     df_list = []
-    progress_bar = tqdm(total=(current_year - start_year + 1) * len(make_id_cars_trucks) * 2)  # initialize progress bar
+
+    # Initialize progress bar
+    progress_bar = tqdm(total=(current_year - start_year + 1) * len(make_id_cars_trucks) * 2)
 
     for year in range(start_year, current_year + 1):
         for make_id in make_id_cars_trucks['make_id']:
@@ -139,15 +132,24 @@ def model_names(make_id_cars_trucks: pd.DataFrame) -> pd.DataFrame:
     return df_concat.drop_duplicates()
 
 
-@asset
-def wmi_by_manufacturer_id(manufacturer_id: pd.DataFrame) -> pd.DataFrame:
+# To return only mfr_id column, need to add this extra boilerplate
+# https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
+@asset(
+    ins={
+        "manufacturers": AssetIn(
+            key="manufacturers",
+            metadata={"columns": ["mfr_id"]},
+        )
+    }
+)
+def wmi_by_manufacturer_id(manufacturers: pd.DataFrame) -> pd.DataFrame:
     """
     WMI codes by manufacturer using NHTSA's API.
     It will take up to approximately 2 hours to materialize this asset.
     """
 
     df_list = []
-    for mfr_id in tqdm(manufacturer_id['mfr_id']):
+    for mfr_id in tqdm(manufacturers['mfr_id']):
         df = fetch_wmi_by_manufacturer(mfr_id)      # imported from utilities
         if df is not None:
             df_list.append(df)
@@ -159,7 +161,16 @@ def wmi_by_manufacturer_id(manufacturer_id: pd.DataFrame) -> pd.DataFrame:
     return df_concat.drop_duplicates()
 
 
-@asset
+# To return only wmi column, need to add this extra boilerplate
+# https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
+@asset(
+    ins={
+        "wmi_by_manufacturer_id": AssetIn(
+            key="wmi_by_manufacturer_id",
+            metadata={"columns": ["wmi"]},
+        )
+    }
+)
 def wmi_with_makes(wmi_by_manufacturer_id: pd.DataFrame) -> pd.DataFrame:
     """
     WMI codes with vehicle make information from NHTSA's API.
@@ -189,7 +200,6 @@ def wmi_with_makes(wmi_by_manufacturer_id: pd.DataFrame) -> pd.DataFrame:
 defs = Definitions(
     assets=[
         manufacturers,
-        manufacturer_id,
         makes,
         make_id_cars_trucks,
         model_names,
