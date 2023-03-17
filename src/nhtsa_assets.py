@@ -16,7 +16,7 @@ wmi_by_manufacturer_id = SourceAsset(key='wmi_by_manufacturer_id')
 wmi_by_manufacturer_id.description = 'Table containing WMI codes by manufacturer ID'
 
 
-@asset
+@asset(group_name="nhtsa")
 def manufacturers(context) -> pd.DataFrame:
     """
     Vehicle manufacturer information from NHTSA API
@@ -58,7 +58,7 @@ def manufacturers(context) -> pd.DataFrame:
     return df_combined[['Mfr_ID', 'Mfr_Name', 'Mfr_CommonName', 'Country', 'Created_Date']].drop_duplicates()
 
 
-@asset
+@asset(group_name="nhtsa")
 def makes() -> pd.DataFrame:
     """
     Vehicle makes from NHTSA API
@@ -74,6 +74,7 @@ def makes() -> pd.DataFrame:
 # To return only make_id column, need to add this extra boilerplate
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
+    group_name="nhtsa",
     ins={
         "make_id_cars_trucks": AssetIn(
             key="make_id_cars_trucks",
@@ -108,7 +109,7 @@ def model_names(make_id_cars_trucks: pd.DataFrame) -> pd.DataFrame:
 
     for year in range(start_year, current_year + 1):
         for make_id in make_id_cars_trucks['make_id']:
-            for vehicle_type in ['passenger', 'truck']:
+            for vehicle_type in ['passenger', 'truck', 'motorcycle']:
                 try:
                     response = fetch_model_names(make_id=make_id, model_year=year, vehicle_type=vehicle_type)
                     response.raise_for_status()
@@ -135,6 +136,7 @@ def model_names(make_id_cars_trucks: pd.DataFrame) -> pd.DataFrame:
 # To return only mfr_id column, need to add this extra boilerplate
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
+    group_name="nhtsa",
     ins={
         "manufacturers": AssetIn(
             key="manufacturers",
@@ -164,6 +166,7 @@ def wmi_by_manufacturer_id(manufacturers: pd.DataFrame) -> pd.DataFrame:
 # To return only wmi column, need to add this extra boilerplate
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
+    group_name="nhtsa",
     ins={
         "wmi_by_manufacturer_id": AssetIn(
             key="wmi_by_manufacturer_id",

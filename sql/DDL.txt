@@ -1,0 +1,19 @@
+# From Snowflake web UI
+CREATE STAGE nhtsa_stage
+FILE_FORMAT = (TYPE = 'CSV' FIELD_DELIMITER = ',' SKIP_HEADER = 1);
+
+SHOW stages;
+list @nhtsa_stage;
+
+# From SnowSQL CLI
+PUT file://C:/Users/your_user/gitprojects/nhtsa_dagster/data/nhtsa_make_id.csv @nhtsa_stage;
+
+# From Snowflake web UI
+CREATE TABLE your_db.nhtsa.make_id_custom (
+    make_id INTEGER,
+    make_name VARCHAR(255)
+);
+
+COPY INTO your_db.nhtsa.make_id_custom (make_id, make_name)
+FROM '@nhtsa_stage/nhtsa_make_id.csv'
+FILE_FORMAT = (TYPE = 'CSV' FIELD_DELIMITER = ',' SKIP_HEADER = 1);
