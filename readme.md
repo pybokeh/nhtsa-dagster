@@ -126,5 +126,5 @@ graph that looks similar to below:
 #### To-Do
 - [ ] Schedule asset materializations to occur once every month
 - [ ] Add data validation perhaps using pydantic, add tests
-- [x] Switch to DuckDB IOManager since it is much easier to get started with DuckDB than Snowflake
+- [x] Created separate branch for DuckDB IOManager
 - [ ] Dockerize it
