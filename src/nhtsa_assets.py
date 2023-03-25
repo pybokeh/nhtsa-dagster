@@ -8,7 +8,10 @@ import pandas as pd
 import requests
 
 
-# The following ensures the tables listed below in Snowflake are available to be ingested by our assets
+# https://docs.dagster.io/concepts/assets/software-defined-assets#defining-external-asset-dependencies
+# A SourceAsset is an asset that was not created or materialized by dagster.
+# The "make_id_cars_trucks_motorcycles" table was loaded from a separate external process.
+# This SourceAsset declaration below ensures that this table will be available to assets that depend on it.
 make_id_cars_trucks_motorcycles = SourceAsset(key='make_id_cars_trucks_motorcycles')
 make_id_cars_trucks_motorcycles.description = 'Table containing make IDs for cars, trucks, and motorcycles only'
 
