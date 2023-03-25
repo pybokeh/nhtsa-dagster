@@ -9,11 +9,8 @@ import requests
 
 
 # The following ensures the tables listed below in Snowflake are available to be ingested by our assets
-manufacturers = SourceAsset(key='manufacturers')
-make_id_cars_trucks = SourceAsset(key='make_id_cars_trucks')
-make_id_cars_trucks.description = 'Table containing make IDs for cars and trucks only'
-wmi_by_manufacturer_id = SourceAsset(key='wmi_by_manufacturer_id')
-wmi_by_manufacturer_id.description = 'Table containing WMI codes by manufacturer ID'
+make_id_cars_trucks_motorcycles = SourceAsset(key='make_id_cars_trucks_motorcycles')
+make_id_cars_trucks_motorcycles.description = 'Table containing make IDs for cars, trucks, and motorcycles only'
 
 
 @asset(group_name="nhtsa")
@@ -76,19 +73,19 @@ def makes() -> pd.DataFrame:
 @asset(
     group_name="nhtsa",
     ins={
-        "make_id_cars_trucks": AssetIn(
-            key="make_id_cars_trucks",
+        "make_id_cars_trucks_motorcycles": AssetIn(
+            key="make_id_cars_trucks_motorcycles",
             metadata={"columns": ["make_id"]},
         )
     }
 )
-def model_names(make_id_cars_trucks: pd.DataFrame) -> pd.DataFrame:
+def model_names(make_id_cars_trucks_motorcycles: pd.DataFrame) -> pd.DataFrame:
     """
     Vehicle model names from NHTSA API (passenger cars and trucks only, last 15 years)
 
     Parameters
     ----------
-    make_id_cars_trucks: this is a smaller set of IDs since if we're to do all make IDs, then the downstream
+    make_id_cars_trucks_motorcycles: this is a smaller set of IDs since if we're to do all make IDs, then the downstream
     process of obtaining model names would take a significant amount of time.
 
     Returns
@@ -105,10 +102,10 @@ def model_names(make_id_cars_trucks: pd.DataFrame) -> pd.DataFrame:
     df_list = []
 
     # Initialize progress bar
-    progress_bar = tqdm(total=(current_year - start_year + 1) * len(make_id_cars_trucks) * 2)
+    progress_bar = tqdm(total=(current_year - start_year + 1) * len(make_id_cars_trucks_motorcycles) * 3)
 
     for year in range(start_year, current_year + 1):
-        for make_id in make_id_cars_trucks['make_id']:
+        for make_id in make_id_cars_trucks_motorcycles['make_id']:
             for vehicle_type in ['passenger', 'truck', 'motorcycle']:
                 try:
                     response = fetch_model_names(make_id=make_id, model_year=year, vehicle_type=vehicle_type)
@@ -204,7 +201,7 @@ defs = Definitions(
     assets=[
         manufacturers,
         makes,
-        make_id_cars_trucks,
+        make_id_cars_trucks_motorcycles,
         model_names,
         wmi_by_manufacturer_id,
         wmi_with_makes,
