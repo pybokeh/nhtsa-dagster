@@ -1,0 +1,5 @@
+# DuckDB's default schema is "main"
+create table main.make_id_cars_trucks_motorcycles(make_id integer, make_name varchar(50));
+
+# This is only valid using DuckDB CLI to load CSV file into DuckDB database
+copy main.make_id_cars_trucks_motorcycles from 'nhtsa_make_id.csv' (AUTO_DETECT TRUE);
