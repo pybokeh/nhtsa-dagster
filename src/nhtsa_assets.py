@@ -1,5 +1,5 @@
 from datetime import datetime
-from dagster_snowflake_pandas import snowflake_pandas_io_manager
+from dagster_duckdb_pandas import duckdb_pandas_io_manager
 from dagster import AssetIn, Definitions, SourceAsset, asset
 from tqdm import tqdm
 from utilities import fetch_manufacturers, fetch_model_names, fetch_wmi_by_manufacturer, fetch_wmi_data
@@ -8,15 +8,18 @@ import pandas as pd
 import requests
 
 
-# The following ensures the tables listed below in Snowflake are available to be ingested by our assets
-manufacturers = SourceAsset(key='manufacturers')
-make_id_cars_trucks = SourceAsset(key='make_id_cars_trucks')
-make_id_cars_trucks.description = 'Table containing make IDs for cars and trucks only'
-wmi_by_manufacturer_id = SourceAsset(key='wmi_by_manufacturer_id')
-wmi_by_manufacturer_id.description = 'Table containing WMI codes by manufacturer ID'
+# Define SourceAsset which is an existing table that does not get materialized by dagster
+# In this case, we have a table called "make_id_cars_trucks_motorcycles" that was created outside of dagster
+# Declaring this SourceAsset will make this table available to other assets that depend on it
+# https://docs.dagster.io/concepts/assets/software-defined-assets#defining-external-asset-dependencies
+make_id_cars_trucks_motorcycles = SourceAsset(key=['main', 'make_id_cars_trucks_motorcycles'], group_name="nhtsa")
+make_id_cars_trucks_motorcycles.description = 'Table containing make IDs for cars, trucks, and motorcycles only'
 
 
-@asset(group_name="nhtsa")
+@asset(
+    group_name="nhtsa",
+    key_prefix=["main"],  # Create this table within the "main" schema
+)
 def manufacturers(context) -> pd.DataFrame:
     """
     Vehicle manufacturer information from NHTSA API
@@ -58,7 +61,10 @@ def manufacturers(context) -> pd.DataFrame:
     return df_combined[['Mfr_ID', 'Mfr_Name', 'Mfr_CommonName', 'Country', 'Created_Date']].drop_duplicates()
 
 
-@asset(group_name="nhtsa")
+@asset(
+    group_name="nhtsa",
+    key_prefix=["main"]      # Create this table within the "main" schema
+)
 def makes() -> pd.DataFrame:
     """
     Vehicle makes from NHTSA API
@@ -75,20 +81,21 @@ def makes() -> pd.DataFrame:
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
     group_name="nhtsa",
+    key_prefix=["main"],
     ins={
-        "make_id_cars_trucks": AssetIn(
-            key="make_id_cars_trucks",
+        "make_id_cars_trucks_motorcycles": AssetIn(
+            key=["main", "make_id_cars_trucks_motorcycles"],
             metadata={"columns": ["make_id"]},
         )
     }
 )
-def model_names(make_id_cars_trucks: pd.DataFrame) -> pd.DataFrame:
+def model_names(make_id_cars_trucks_motorcycles: pd.DataFrame) -> pd.DataFrame:
     """
     Vehicle model names from NHTSA API (passenger cars and trucks only, last 15 years)
 
     Parameters
     ----------
-    make_id_cars_trucks: this is a smaller set of IDs since if we're to do all make IDs, then the downstream
+    make_id_cars_trucks_motorcycles: this is a smaller set of IDs since if we're to do all make IDs, then the downstream
     process of obtaining model names would take a significant amount of time.
 
     Returns
@@ -105,10 +112,10 @@ def model_names(make_id_cars_trucks: pd.DataFrame) -> pd.DataFrame:
     df_list = []
 
     # Initialize progress bar
-    progress_bar = tqdm(total=(current_year - start_year + 1) * len(make_id_cars_trucks) * 2)
+    progress_bar = tqdm(total=(current_year - start_year + 1) * len(make_id_cars_trucks_motorcycles) * 3)
 
     for year in range(start_year, current_year + 1):
-        for make_id in make_id_cars_trucks['make_id']:
+        for make_id in make_id_cars_trucks_motorcycles['make_id']:
             for vehicle_type in ['passenger', 'truck', 'motorcycle']:
                 try:
                     response = fetch_model_names(make_id=make_id, model_year=year, vehicle_type=vehicle_type)
@@ -137,9 +144,10 @@ def model_names(make_id_cars_trucks: pd.DataFrame) -> pd.DataFrame:
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
     group_name="nhtsa",
+    key_prefix=["main"],    # Create this table within the "main" schema
     ins={
         "manufacturers": AssetIn(
-            key="manufacturers",
+            key=["main", "manufacturers"],
             metadata={"columns": ["mfr_id"]},
         )
     }
@@ -167,9 +175,10 @@ def wmi_by_manufacturer_id(manufacturers: pd.DataFrame) -> pd.DataFrame:
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
     group_name="nhtsa",
+    key_prefix=["main"],    # Create this table within the "main" schema
     ins={
         "wmi_by_manufacturer_id": AssetIn(
-            key="wmi_by_manufacturer_id",
+            key=["main", "wmi_by_manufacturer_id"],
             metadata={"columns": ["wmi"]},
         )
     }
@@ -204,22 +213,15 @@ defs = Definitions(
     assets=[
         manufacturers,
         makes,
-        make_id_cars_trucks,
+        make_id_cars_trucks_motorcycles,
         model_names,
         wmi_by_manufacturer_id,
         wmi_with_makes,
     ],
     resources={
-        "io_manager": snowflake_pandas_io_manager.configured(
+        "io_manager": duckdb_pandas_io_manager.configured(
             {
-                "account": {"env": "SF_ACCOUNT"},
-                "warehouse": {"env": "SF_WAREHOUSE"},
-                "database": {"env": "SF_DATABASE"},
-                "schema": "nhtsa",
-                "role": {"env": "SF_ROLE"},
-                "user": {"env": "SF_USERNAME"},
-                "password": {"env": "SF_PASSWORD"},
-                "authenticator": {"env": "SF_AUTHENTICATOR"},
+                "database": "nhtsa.duckdb",
             }
         )
     },
