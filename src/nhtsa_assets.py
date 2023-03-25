@@ -222,6 +222,9 @@ defs = Definitions(
         "io_manager": duckdb_pandas_io_manager.configured(
             {
                 "database": "nhtsa.duckdb",
+                # "schema": "main",             # This would make "main" the schema for ALL assets, but commented out
+                                                # to show that we have the ability to define a different schema for
+                                                # different tables via key_prefix and key parameters.
             }
         )
     },
