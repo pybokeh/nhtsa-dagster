@@ -1,9 +1,11 @@
 from datetime import datetime
 from dagster_duckdb_pandas import duckdb_pandas_io_manager
 from dagster import AssetIn, Definitions, SourceAsset, asset
+from pathlib import Path
 from tqdm import tqdm
 from utilities import fetch_manufacturers, fetch_model_names, fetch_wmi_by_manufacturer, fetch_wmi_data
 import io
+import os
 import pandas as pd
 import requests
 
@@ -221,10 +223,7 @@ defs = Definitions(
     resources={
         "io_manager": duckdb_pandas_io_manager.configured(
             {
-                "database": "nhtsa.duckdb",
-                # "schema": "main",             # This would make "main" the schema for ALL assets, but commented out
-                                                # to show that we have the ability to define a different schema for
-                                                # different tables via key_prefix and key parameters.
+                "database": str(Path(os.environ['DUCKDB_DB_PATH']))
             }
         )
     },
