@@ -100,11 +100,24 @@ Information such as when the runs started, when they failed, how long they took 
 use a more robust database backend, such as PostgreSQL.
 
 
-#### Storing "secrets" / password credentials
-Per dagster's [documentation](https://docs.dagster.io/guides/dagster/using-environment-variables-and-secrets#using-environment-variables-and-secrets), they recommend that we save sensitive type of information in a simple text file called
-`.env` that you of course, do NOT check into code repository.  Make sure to add this in your `.gitignore` file.
-What dagster then does is, it saves your credentials as environment variables that you can refer to in your dagster code.  
-In this code repo, Snowflake was used to store NHTSA's data.  Therefore, credentials for Snowflake were saved in this `.env` file.
+#### Creating / Setting up the nhtsa.duckdb database
+Navigate to folder where you want to create your `nhtsa.duckdb` database.  Also save the `nhtsa_make_id.csv` file that came with this repo's `data/` folder to that same folder location where your `nhtsa.duckdb` file will be also.  Then using the duckdb CLI executable, create nhtsa.duckdb database via command: <br>
+`duckdb nhtsa.duckdb`
+
+
+Then create a new empty table that we will load the `nhtsa_make_id.csv` file into: <br>
+`create table main.make_id_cars_trucks_motorcycles(make_id integer, make_name varchar(50));`
+
+
+Then load/copy the `nhtsa_make_id.csv` file into that table: <br>
+`copy main.make_id_cars_trucks_motorcycles from 'nhtsa_make_id.csv' (AUTO_DETECT TRUE)`
+
+
+Finally, create `DUCKDB_DB_PATH` environment variable: <br>
+`export DUCKDB_DB_PATH=/path/to/folder/containing/your/nhtsa.duckdb`   (Linux/MacOS) <br>
+
+
+`set DUCKDB_DB_PATH=/path/to/folder/containing/your/nhtsa.duckdb`   (Windows) <br>
 
 
 #### Running dagster and it's web UI called dagit
@@ -126,5 +139,4 @@ graph that looks similar to below:
 #### To-Do
 - [ ] Schedule asset materializations to occur once every month
 - [ ] Add data validation perhaps using pydantic, add tests
-- [x] Switch to DuckDB IOManager since it is much easier to get started with DuckDB than Snowflake
 - [ ] Dockerize it
