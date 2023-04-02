@@ -137,6 +137,6 @@ graph that looks similar to below:
 
 
 #### To-Do
-- [ ] Schedule asset materializations to occur once every month
+- [X] Schedule asset materializations
 - [ ] Add data validation perhaps using pydantic, add tests
 - [ ] Dockerize it

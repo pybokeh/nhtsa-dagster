@@ -1,6 +1,14 @@
 from datetime import datetime
 from dagster_duckdb_pandas import duckdb_pandas_io_manager
-from dagster import AssetIn, Definitions, SourceAsset, asset
+from dagster import (
+    AssetIn,
+    AssetSelection,
+    Definitions,
+    ScheduleDefinition,
+    SourceAsset,
+    asset,
+    define_asset_job,
+)
 from pathlib import Path
 from tqdm import tqdm
 from utilities import fetch_manufacturers, fetch_model_names, fetch_wmi_by_manufacturer, fetch_wmi_data
@@ -19,7 +27,7 @@ make_id_cars_trucks_motorcycles.description = 'Table containing make IDs for car
 
 
 @asset(
-    group_name="nhtsa",
+    group_name="nhtsa_wmi",
     key_prefix=["main"],  # Create this table within the "main" schema
 )
 def manufacturers(context) -> pd.DataFrame:
@@ -145,7 +153,7 @@ def model_names(make_id_cars_trucks_motorcycles: pd.DataFrame) -> pd.DataFrame:
 # To return only mfr_id column, need to add this extra boilerplate
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
-    group_name="nhtsa",
+    group_name="nhtsa_wmi",
     key_prefix=["main"],    # Create this table within the "main" schema
     ins={
         "manufacturers": AssetIn(
@@ -176,7 +184,7 @@ def wmi_by_manufacturer_id(manufacturers: pd.DataFrame) -> pd.DataFrame:
 # To return only wmi column, need to add this extra boilerplate
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
-    group_name="nhtsa",
+    group_name="nhtsa_wmi",
     key_prefix=["main"],    # Create this table within the "main" schema
     ins={
         "wmi_by_manufacturer_id": AssetIn(
@@ -211,6 +219,25 @@ def wmi_with_makes(wmi_by_manufacturer_id: pd.DataFrame) -> pd.DataFrame:
     return df_concat.drop_duplicates()
 
 
+# https://docs.dagster.io/_apidocs/assets#dagster.define_asset_job
+# https://docs.dagster.io/tutorial/scheduling-your-pipeline#scheduling-the-materializations
+# AssetSelection allows you to "query" which assets to include in a job:
+# https://docs.dagster.io/_apidocs/assets#dagster.AssetSelection
+nhtsa_job = define_asset_job(name="nhtsa_job", selection=AssetSelection.groups("nhtsa"))
+nhtsa_wmi_job = define_asset_job(name="nhtsa_wmi_job", selection=AssetSelection.groups("nhtsa_wmi"))
+
+nhtsa_schedule = ScheduleDefinition(
+    job=nhtsa_job,
+    # Run this schedule every first Monday of each month at 9am EST
+    cron_schedule="0 4 1-7 * 1"
+)
+
+nhtsa_wmi_schedule = ScheduleDefinition(
+    job=nhtsa_wmi_job,
+    # Run this schedule first Monday of July every year at 9am EST
+    cron_schedule="0 4 1-7 7 1"
+)
+
 defs = Definitions(
     assets=[
         manufacturers,
@@ -219,6 +246,10 @@ defs = Definitions(
         model_names,
         wmi_by_manufacturer_id,
         wmi_with_makes,
+    ],
+    schedules=[
+        nhtsa_schedule,
+        nhtsa_wmi_schedule,
     ],
     resources={
         "io_manager": duckdb_pandas_io_manager.configured(
