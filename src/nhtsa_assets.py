@@ -4,6 +4,8 @@ from dagster import (
     AssetIn,
     AssetSelection,
     Definitions,
+    MetadataValue,
+    Output,
     ScheduleDefinition,
     SourceAsset,
     asset,
@@ -30,7 +32,7 @@ make_id_cars_trucks_motorcycles.description = 'Table containing make IDs for car
     group_name="nhtsa_wmi",
     key_prefix=["main"],  # Create this table within the "main" schema
 )
-def manufacturers(context) -> pd.DataFrame:
+def manufacturers(context) -> Output[pd.DataFrame]:
     """
     Vehicle manufacturer information from NHTSA API
     """
@@ -68,14 +70,21 @@ def manufacturers(context) -> pd.DataFrame:
     df_combined = df_combined.assign(Created_Date=today)
     context.log.info(f"Number of rows in manufacturers dataframe: {df_combined.shape[0]}")
 
-    return df_combined[['Mfr_ID', 'Mfr_Name', 'Mfr_CommonName', 'Country', 'Created_Date']].drop_duplicates()
+    df_final = df_combined[['Mfr_ID', 'Mfr_Name', 'Mfr_CommonName', 'Country', 'Created_Date']].drop_duplicates()
+
+    return Output(
+        value=df_final,
+        metadata={
+            "preview": MetadataValue.md(df_final.head().to_markdown(index=False))
+        }
+    )
 
 
 @asset(
     group_name="nhtsa",
     key_prefix=["main"]      # Create this table within the "main" schema
 )
-def makes() -> pd.DataFrame:
+def makes() -> Output[pd.DataFrame]:
     """
     Vehicle makes from NHTSA API
     """
@@ -84,7 +93,12 @@ def makes() -> pd.DataFrame:
     today = datetime.today().strftime('%Y-%m-%d')
     df = df.assign(created_date=today)
 
-    return df
+    return Output(
+        value=df,
+        metadata={
+            "preview": MetadataValue.md(df.head().to_markdown(index=False))
+        }
+    )
 
 
 # To return only make_id column, need to add this extra boilerplate
@@ -99,7 +113,7 @@ def makes() -> pd.DataFrame:
         )
     }
 )
-def model_names(make_id_cars_trucks_motorcycles: pd.DataFrame) -> pd.DataFrame:
+def model_names(make_id_cars_trucks_motorcycles: pd.DataFrame) -> Output[pd.DataFrame]:
     """
     Vehicle model names from NHTSA API (passenger cars and trucks only, last 15 years)
 
@@ -147,7 +161,14 @@ def model_names(make_id_cars_trucks_motorcycles: pd.DataFrame) -> pd.DataFrame:
     today = datetime.today().strftime('%Y-%m-%d')
     df_concat = df_concat.assign(Created_Date=today)
 
-    return df_concat.drop_duplicates()
+    df_final = df_concat.drop_duplicates()
+
+    return Output(
+        value=df_final,
+        metadata={
+            "preview": MetadataValue.md(df_final.head().to_markdown(index=False))
+        }
+    )
 
 
 # To return only mfr_id column, need to add this extra boilerplate
@@ -162,7 +183,7 @@ def model_names(make_id_cars_trucks_motorcycles: pd.DataFrame) -> pd.DataFrame:
         )
     }
 )
-def wmi_by_manufacturer_id(manufacturers: pd.DataFrame) -> pd.DataFrame:
+def wmi_by_manufacturer_id(manufacturers: pd.DataFrame) -> Output[pd.DataFrame]:
     """
     WMI codes by manufacturer using NHTSA's API.
     It will take up to approximately 2 hours to materialize this asset.
@@ -178,7 +199,14 @@ def wmi_by_manufacturer_id(manufacturers: pd.DataFrame) -> pd.DataFrame:
     today = datetime.today().strftime('%Y-%m-%d')
     df_concat = df_concat.assign(Created_Date=today)
 
-    return df_concat.drop_duplicates()
+    df_final = df_concat.drop_duplicates()
+
+    return Output(
+        value=df_final,
+        metadata={
+            "preview": MetadataValue.md(df_final.head().to_markdown(index=False))
+        }
+    )
 
 
 # To return only wmi column, need to add this extra boilerplate
@@ -193,7 +221,7 @@ def wmi_by_manufacturer_id(manufacturers: pd.DataFrame) -> pd.DataFrame:
         )
     }
 )
-def wmi_with_makes(wmi_by_manufacturer_id: pd.DataFrame) -> pd.DataFrame:
+def wmi_with_makes(wmi_by_manufacturer_id: pd.DataFrame) -> Output[pd.DataFrame]:
     """
     WMI codes with vehicle make information from NHTSA's API.
 
@@ -216,7 +244,14 @@ def wmi_with_makes(wmi_by_manufacturer_id: pd.DataFrame) -> pd.DataFrame:
     today = datetime.today().strftime('%Y-%m-%d')
     df_concat = df_concat.assign(Created_Date=today)
 
-    return df_concat.drop_duplicates()
+    df_final = df_concat.drop_duplicates()
+
+    return Output(
+        value=df_final,
+        metadata={
+            "preview": MetadataValue.md(df_final.head().to_markdown(index=False))
+        }
+    )
 
 
 # https://docs.dagster.io/_apidocs/assets#dagster.define_asset_job
