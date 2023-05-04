@@ -114,12 +114,10 @@ Then load/copy the `nhtsa_make_id.csv` file into that table: <br>
 `copy public.make_id_cars_trucks_motorcycles from 'nhtsa_make_id.csv' (AUTO_DETECT TRUE)`
 
 
-Finally, create `DUCKDB_DB_PATH` environment variable: <br>
-`export DUCKDB_DB_PATH=/path/to/folder/containing/your/nhtsa.duckdb`   (Linux/MacOS) <br>
+Finally, create `DUCKDB_DB_PATH` environment variable using dagster's recommended `.env` method per ["Best Practices"](https://docs.dagster.io/guides/dagster/using-environment-variables-and-secrets).
 
-
-`set DUCKDB_DB_PATH=/path/to/folder/containing/your/nhtsa.duckdb`   (Windows) <br>
-
+Contents of .env file:
+`DUCKDB_DB_PATH=\path_to_your\nhtsa.duckdb`
 
 #### Running dagster and it's web UI called dagit
 Assuming you have Python installed and your virtual environment activated, you can execute or run dagster's `dagit` web 
