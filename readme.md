@@ -62,7 +62,7 @@ Then you can install dagster related packages using the `pip` command:
 
 In this code repo, the actual packages that I installed are the following:
 
-`pip install dagster dagit dagster-snowflake dagster-snowflake-pandas requests tqdm pylint black pytest loguru`
+`pip install dagster dagit dagster-duckdb dagster-duckdb-pandas requests tqdm pylint black pytest loguru`
 
 I then created my `requirements.txt` file by issuing the following command:
 
@@ -106,11 +106,12 @@ Navigate to folder where you want to create your `nhtsa.duckdb` database.  Also 
 
 
 Then create a new empty table that we will load the `nhtsa_make_id.csv` file into: <br>
-`create table main.make_id_cars_trucks_motorcycles(make_id integer, make_name varchar(50));`
+`create schema public;`<br>
+`create table public.make_id_cars_trucks_motorcycles(make_id integer, make_name varchar(50));`
 
 
 Then load/copy the `nhtsa_make_id.csv` file into that table: <br>
-`copy main.make_id_cars_trucks_motorcycles from 'nhtsa_make_id.csv' (AUTO_DETECT TRUE)`
+`copy public.make_id_cars_trucks_motorcycles from 'nhtsa_make_id.csv' (AUTO_DETECT TRUE)`
 
 
 Finally, create `DUCKDB_DB_PATH` environment variable: <br>
@@ -138,5 +139,6 @@ graph that looks similar to below:
 
 #### To-Do
 - [X] Schedule asset materializations
+- [ ] Partition the model_names asset into static partions by vehicle type: "passenger","truck","motorcycle"
 - [ ] Add data validation perhaps using pydantic, add tests
 - [ ] Dockerize it

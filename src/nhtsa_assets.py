@@ -24,13 +24,14 @@ import requests
 # In this case, we have a table called "make_id_cars_trucks_motorcycles" that was created outside of dagster
 # Declaring this SourceAsset will make this table available to other assets that depend on it
 # https://docs.dagster.io/concepts/assets/software-defined-assets#defining-external-asset-dependencies
-make_id_cars_trucks_motorcycles = SourceAsset(key=['main', 'make_id_cars_trucks_motorcycles'], group_name="nhtsa")
+make_id_cars_trucks_motorcycles = SourceAsset(key=['public', 'make_id_cars_trucks_motorcycles'], group_name="nhtsa")
 make_id_cars_trucks_motorcycles.description = 'Table containing make IDs for cars, trucks, and motorcycles only'
 
 
 @asset(
     group_name="nhtsa_wmi",
-    key_prefix=["main"],  # Create this table within the "main" schema
+    key_prefix=["public"],  # Create this table within the "public" schema
+    compute_kind="duckdb",
 )
 def manufacturers(context) -> Output[pd.DataFrame]:
     """
@@ -82,7 +83,8 @@ def manufacturers(context) -> Output[pd.DataFrame]:
 
 @asset(
     group_name="nhtsa",
-    key_prefix=["main"]      # Create this table within the "main" schema
+    key_prefix=["public"],      # Create this table within the "public" schema
+    compute_kind="duckdb",
 )
 def makes() -> Output[pd.DataFrame]:
     """
@@ -105,10 +107,11 @@ def makes() -> Output[pd.DataFrame]:
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
     group_name="nhtsa",
-    key_prefix=["main"],
+    key_prefix=["public"],
+    compute_kind="duckdb",
     ins={
         "make_id_cars_trucks_motorcycles": AssetIn(
-            key=["main", "make_id_cars_trucks_motorcycles"],
+            key=["public", "make_id_cars_trucks_motorcycles"],
             metadata={"columns": ["make_id"]},
         )
     }
@@ -175,10 +178,11 @@ def model_names(make_id_cars_trucks_motorcycles: pd.DataFrame) -> Output[pd.Data
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
     group_name="nhtsa_wmi",
-    key_prefix=["main"],    # Create this table within the "main" schema
+    key_prefix=["public"],    # Create this table within the "public" schema
+    compute_kind="duckdb",
     ins={
         "manufacturers": AssetIn(
-            key=["main", "manufacturers"],
+            key=["public", "manufacturers"],
             metadata={"columns": ["mfr_id"]},
         )
     }
@@ -213,10 +217,11 @@ def wmi_by_manufacturer_id(manufacturers: pd.DataFrame) -> Output[pd.DataFrame]:
 # https://docs.dagster.io/integrations/snowflake/reference#selecting-specific-columns-in-a-downstream-asset
 @asset(
     group_name="nhtsa_wmi",
-    key_prefix=["main"],    # Create this table within the "main" schema
+    key_prefix=["public"],    # Create this table within the "public" schema
+    compute_kind="duckdb",
     ins={
         "wmi_by_manufacturer_id": AssetIn(
-            key=["main", "wmi_by_manufacturer_id"],
+            key=["public", "wmi_by_manufacturer_id"],
             metadata={"columns": ["wmi"]},
         )
     }
@@ -289,7 +294,7 @@ defs = Definitions(
     resources={
         "io_manager": duckdb_pandas_io_manager.configured(
             {
-                "database": str(Path(os.environ['DUCKDB_DB_PATH']))
+                "database": {"env": "DUCKDB_DB_PATH"},
             }
         )
     },

@@ -1,3 +1,5 @@
 .env
 nhtsa.duckdb
 nhtsa_make_id.csv
+.idea/
+__pycache__/
