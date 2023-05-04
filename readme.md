@@ -139,6 +139,6 @@ graph that looks similar to below:
 
 #### To-Do
 - [X] Schedule asset materializations
-- [ ] Partition the model_names asset into static partions by vehicle type: "passenger","truck","motorcycle"
+- [ ] Partition the model_names asset into static partitions by vehicle type: "passenger","truck","motorcycle"
 - [ ] Add data validation perhaps using pydantic, add tests
 - [ ] Dockerize it
